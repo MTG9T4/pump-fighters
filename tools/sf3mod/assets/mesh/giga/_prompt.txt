@@ -1,0 +1,29 @@
+Use your image generation tool. Do not write code (only save / copy the generated files).
+This is a private Street Fighter III mod, "PUMP COMBAT". Character: GIGA - GIGA (gigachad meme): hyper-muscular man, shirtless, black wrestling trunks, white wrist tape, black boots.
+
+Attached images, in order:
+1) art/concept/giga.png - the character sheet (identity, colours, outfit). Keep the character exactly on-model.
+2) sf3mod/assets/mesh/giga/_style.png - the character's existing cut-out puppet parts. MATCH THIS STYLE EXACTLY: bold readable
+   shapes, thick dark outline (#14101c), clean cel shading with 3 tones per material, light from the upper left, no
+   painterly texture, no fur noise, no glow, no cast shadows. Same palette and line weight.
+3) sf3mod/assets/mesh/_guide/body.png - grey mannequin: the POSE and FRAMING of image A below.
+4) sf3mod/assets/mesh/_guide/arm.png - grey mannequin: the POSE and FRAMING of image B below.
+The mannequins only show pose and placement: do not copy their grey colour; use the character's own proportions.
+
+Purpose: layers for 2D mesh skinning (like Spine / DragonBones): a script deforms each drawing with bones onto every
+animation frame of a fighting-game character (the whole body ends up ~110 px tall), so each layer must be ONE
+continuous drawing with no gaps or seams between its body parts. View: 3/4 side view of a fighter whose body faces
+the viewer's RIGHT (like a fighting-game character on the left side of the screen), slightly turned toward camera.
+
+Make exactly 1 image (image A), portrait 2:3 (1024x1536), each on a pure flat black #000000 background, nothing else in the
+image (no text, no ground, no shadow), and save them with original bytes, no resizing:
+
+A) sf3mod/assets/mesh/giga/body.png - the BODY layer: the whole character from the neck down WITHOUT ARMS and WITHOUT HEAD, as one
+   continuous drawing: a short neck stub / collar at the top centre, chest, belly, waist, hips, both legs and both feet
+   (pelvis and legs joined naturally like a real body, no separate plates, no seams at the hips or knees). Pose exactly
+   like the guide: standing upright, legs straight and apart in a wide A-stance, a clear black gap between the legs
+   from the crotch down, both feet flat on one line with the toes pointing RIGHT. No arms at all: the sides of
+   the chest end flush at the armpits, with NO shoulder caps, arm stubs or sleeves sticking out (the arm layer is
+   drawn separately and covers the shoulder). No tail, no cape, no weapon, no hands. Absolutely NO arm or hand anywhere in this image, not even folded behind the back or across the belly: just the bare torso with the pectorals and abs fully visible, the shoulders cut off flush at the sides. Fill about 85% of
+   the image height, centred.
+Finish with the saved path.

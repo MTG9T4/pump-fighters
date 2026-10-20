@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PUMP FIGHTERS for PSP</title>
+  <meta name="description" content="Make the PUMP FIGHTERS SF33RD.AFS for PSP / PPSSPP from your own copy of Street Fighter III 3rd Strike.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b0a12">
+  <!-- Same patch as the browser game (public: deltas only, no game data) -->
+  <meta name="pc-patch-url" content="patch/pumpfighters.json">
+  <link rel="icon" type="image/png" href="icons/favicon-32.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="page">
+  <main class="page-card">
+    <header class="page-head">
+      <img class="loader-icon" src="icons/icon-192.png" alt="" width="72" height="72">
+      <div>
+        <h1>PUMP FIGHTERS</h1>
+        <p class="page-sub">for PSP and PPSSPP</p>
+      </div>
+    </header>
+
+    <p class="byo-lead">Make the PUMP FIGHTERS <b>SF33RD.AFS</b> from your own copy of Street Fighter III 3rd Strike.
+      Your file is checked and patched in this browser; nothing is uploaded.</p>
+
+    <ol class="steps">
+      <li>
+        <h2>Pick your SF33RD.AFS</h2>
+        <p class="detail">PS2 US version (v1.0), the file in the disc's THIRD folder (642,492,416 bytes).</p>
+        <button id="btn-pick" class="big" type="button">PICK SF33RD.AFS</button>
+        <input id="file" class="visually-hidden" type="file" tabindex="-1" aria-hidden="true">
+        <p id="picked" class="detail" aria-live="polite"></p>
+      </li>
+      <li>
+        <h2>Save the modded file</h2>
+        <p id="save-how" class="detail"></p>
+        <button id="btn-save" class="big" type="button" disabled>SAVE MODDED FILE</button>
+        <div id="bar" class="bar" hidden><div id="bar-fill"></div></div>
+        <p id="status" aria-live="polite"></p>
+        <p id="detail" class="detail"></p>
+        <a id="btn-download" class="big" download="SF33RD.AFS" hidden>DOWNLOAD SF33RD.AFS</a>
+      </li>
+      <li>
+        <h2>Put it on your PSP or in PPSSPP</h2>
+        <p class="detail">PUMP FIGHTERS runs on the 3s-psp port. Get its <code>EBOOT.PBP</code> from the
+          <a href="https://github.com/demmis98/3s-psp" rel="noopener noreferrer" target="_blank">3s-psp project's own release</a>
+          (we can't share it), then lay the folder out like this:</p>
+        <pre class="tree">PSP/GAME/3rd-strike/
+  EBOOT.PBP
+  resources/
+    SF33RD.AFS   &larr; the modded file</pre>
+        <p class="detail">In PPSSPP the PSP folder is in its memory stick folder (on Windows usually
+          <code>Documents/PPSSPP/PSP</code>). Keep your original SF33RD.AFS somewhere else.</p>
+      </li>
+    </ol>
+
+    <a class="link-row" href="./">Play in the browser instead &#x203A;</a>
+  </main>
+  <script type="module" src="patch-page.js"></script>
+</body>
+</html>

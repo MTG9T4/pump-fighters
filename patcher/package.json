@@ -1,0 +1,18 @@
+{
+  "name": "pump-fighters-patcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PUMP FIGHTERS patcher: turns your own SF33RD.AFS into the PUMP FIGHTERS archive (browser + Node). Ships no game data.",
+  "license": "AGPL-3.0-or-later",
+  "bin": { "pump-fighters-patch": "patch.mjs" },
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "patch": "node patch.mjs",
+    "make-patch": "node tools/make-patch.mjs",
+    "test": "node --test test/patcher.test.mjs"
+  },
+  "devDependencies": {
+    "@ably/vcdiff-decoder": "1.0.6"
+  }
+}

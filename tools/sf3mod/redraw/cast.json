@@ -1,0 +1,198 @@
+{
+ "pl02": {
+  "mascot": "swordcat",
+  "NAME": "SWORDCAT",
+  "desc": "orange tabby kitten, big green eyes, pink cherry blossom behind the left ear, silver plate armour with gold trim and gold fleur-de-lis, brown leather belt with gold buckle, blue cape, silver gauntlets and sabatons.",
+  "fighter": "Ryu",
+  "fighter_desc": "a karate fighter in a white gi with a red headband",
+  "concept": "art/concept/swordcat.png",
+  "portrait": "sf3mod/assets/gen/portrait_swordcat.png",
+  "note": "SWORDCAT has no tail. His feet are always silver armoured sabatons, never bare paws or toes, and his legs are armoured greaves, never blue shorts. Nothing of Ryu remains: no red headband ribbons, no black belt tails."
+ },
+ "pl11": {
+  "mascot": "inu",
+  "NAME": "INU",
+  "desc": "shiba inu puppy fighter: tan/orange shiba fur with cream cheeks, chest and belly, curled tail, red karate gi with sleeves torn at the shoulders and a black belt, bare paws.",
+  "fighter": "Ken",
+  "fighter_desc": "a karate fighter in a red gi",
+  "concept": "art/concept/inu.png",
+  "portrait": "sf3mod/assets/gen/portrait_inu.png",
+  "note": "INU has exactly one curled tail, always at the base of the spine above the hips, never on the back or shoulders and never two."
+ },
+ "pl04": {
+  "mascot": "jeanphil",
+  "NAME": "JEAN PHIL",
+  "desc": "long-faced smug man, blond bowl cut, thin moustache, grey houndstooth blazer, red tie, white shirt, dark trousers, brown leather shoes.",
+  "fighter": "Dudley",
+  "fighter_desc": "a gentleman boxer with boxing gloves and suit trousers",
+  "concept": "art/concept/jeanphil.png",
+  "portrait": "sf3mod/assets/gen/portrait_jeanphil.png",
+  "note": "When the source shows the fighter from behind (his back, no face visible), draw JEAN PHIL from behind too: back of the blond head and the blazer's back, no face or tie."
+ },
+ "pl13": {
+  "mascot": "elon",
+  "NAME": "ELON",
+  "desc": "a generic tech-billionaire PARODY caricature (exaggerated cartoon, not a real likeness): dark swept hair, big confident grin, black bomber jacket, black t-shirt, dark jeans.",
+  "fighter": "Urien",
+  "fighter_desc": "a muscular man in a loincloth",
+  "concept": "art/concept/elon.png",
+  "portrait": "sf3mod/assets/gen/portrait_elon.png",
+  "note": "Urien's intro is an EMPTY suit with no head and no hands: draw it as an empty headless black bomber jacket and jeans standing on their own, with no head, no face and no hands; when the suit tears apart, draw torn jacket and jeans pieces."
+ },
+ "pl05": {
+  "mascot": "pepe",
+  "NAME": "PEPE",
+  "desc": "green frog man, big half-lidded eyes, wide red-lipped smirk, blue t-shirt, brown trousers.",
+  "fighter": "Necro",
+  "fighter_desc": "a lanky fighter with stretchy rubber limbs",
+  "concept": "art/concept/pepe.png",
+  "portrait": "sf3mod/assets/gen/portrait_pepe.png",
+  "note": "When the source shows the fighter's back (head hidden or turned away), draw PEPE from behind: back of the green head and the blue t-shirt's back, no face. PEPE has exactly one head and two feet. No wristbands."
+ },
+ "pl16": {
+  "mascot": "claudia",
+  "NAME": "CLAUDIA",
+  "desc": "AI popstar girl, black blunt bob haircut with a copper streak, headset microphone, silver chrome jacket, black crop top, black shorts and tights, platform boots.",
+  "fighter": "Chun-Li",
+  "fighter_desc": "a kung-fu woman in a blue qipao and white boots",
+  "concept": "art/concept/claudia.png",
+  "portrait": "sf3mod/assets/gen/portrait_claudia.png"
+ },
+ "pl03": {
+  "mascot": "wif",
+  "NAME": "WIF",
+  "desc": "shiba inu dog wearing a pink knitted beanie, grey hoodie, deadpan face.",
+  "fighter": "Yun",
+  "fighter_desc": "a kung-fu fighter in a cap and a Chinese outfit",
+  "concept": "art/concept/wif.png",
+  "portrait": "sf3mod/assets/gen/portrait_wif.png",
+  "note": "WIF has exactly one head. His grey hoodie sleeves reach all the way to the wrists and his paws are bare shiba fur: no yellow sleeves, cuffs or bands anywhere on his arms. When the source holds the cap in his hand with a bare head, WIF holds the pink beanie in his paw with a bare head."
+ },
+ "pl17": {
+  "mascot": "popcat",
+  "NAME": "POPCAT",
+  "desc": "white cat with a huge round open \"pop\" mouth, pink inner ears, yellow boxing shorts, white hand wraps.",
+  "fighter": "Makoto",
+  "fighter_desc": "a karate girl in a white gi with a headband",
+  "concept": "art/concept/popcat.png",
+  "portrait": "sf3mod/assets/gen/portrait_popcat.png"
+ },
+ "pl18": {
+  "mascot": "pnut",
+  "NAME": "PNUT",
+  "desc": "grey-brown squirrel cowboy, brown cowboy hat, red bandana, brown leather vest, big bushy tail.",
+  "fighter": "Q",
+  "fighter_desc": "a tall man in a trench coat and a metal mask",
+  "concept": "art/concept/pnut.png",
+  "portrait": "sf3mod/assets/gen/portrait_pnut.png",
+  "note": "PNUT has exactly ONE bushy tail, attached at the base of the spine. He wears NO coat: no coat skirt, no coat flap, no fur fin or extra fluffy shape anywhere; where the source's trench coat flares out, draw nothing. PNUT has bare squirrel feet and furry squirrel legs below his vest: no shoes, no trousers."
+ },
+ "pl06": {
+  "mascot": "moodeng",
+  "NAME": "MOO DENG",
+  "desc": "chubby baby pygmy hippo, glossy grey-pink skin, pink cheeks, wide open mouth tantrum face, blue sumo belt (mawashi).",
+  "fighter": "Hugo",
+  "fighter_desc": "a giant wrestler",
+  "concept": "art/concept/moodeng.png",
+  "portrait": "sf3mod/assets/gen/portrait_moodeng.png",
+  "note": "If the source body has NO head (the game draws the head from another sprite), draw MOO DENG's body with NO head and no ears either, cut off at the neck like the source. When the source shows the fighter's back, draw MOO DENG from behind: grey-pink back, back of the head, no face, no belly."
+ },
+ "pl01": {
+  "mascot": "giga",
+  "NAME": "GIGA",
+  "desc": "hyper-muscular gigachad-style man, chiselled jaw, swept dark hair, short beard, shirtless, black wrestling trunks, white wrist tape, black boots.",
+  "fighter": "Alex",
+  "fighter_desc": "a muscular blond wrestler in green trousers and gloves",
+  "concept": "art/concept/giga.png",
+  "portrait": "sf3mod/assets/gen/portrait_giga.png",
+  "style": "sf3mod/build/redraw/pl01/idle_codex.png"
+ },
+ "pl14": {
+  "mascot": "goat",
+  "NAME": "GOAT",
+  "desc": "anthropomorphic white goat warrior, big curled dark horns, glowing red eyes, short beard, dark purple martial-arts gi with torn sleeves, thick rope belt, prayer beads around the neck, bare hooves.",
+  "fighter": "Akuma",
+  "fighter_desc": "a demon karate fighter in a dark gi with prayer beads",
+  "concept": "art/concept/goat.png",
+  "portrait": "sf3mod/assets/gen/portrait_goat.png"
+ },
+ "pl12": {
+  "mascot": "chillguy",
+  "NAME": "CHILL GUY",
+  "desc": "brown-and-beige cartoon dog-like guy (the \"just a chill guy\" meme) with a smug relaxed smirk and half-closed eyes, grey knit sweater with sleeves pushed up, rolled-up blue jeans, red sneakers.",
+  "fighter": "Sean",
+  "fighter_desc": "a karate fighter in a white gi",
+  "concept": "art/concept/chillguy.png",
+  "portrait": "sf3mod/assets/gen/portrait_chillguy.png",
+  "note": "When the source shows the fighter's back (face hidden, turned away), draw CHILL GUY from behind: back of the head and floppy ears, the sweater's back, no face or snout. When the source faces left in side view, draw him in side view facing left."
+ },
+ "pl10": {
+  "mascot": "ponke",
+  "NAME": "PONKE",
+  "desc": "cheeky brown monkey with a huge toothy grin and wide eyes, red bandana around the neck, yellow tank top, green cargo shorts, bare monkey feet, long curling tail.",
+  "fighter": "Yang",
+  "fighter_desc": "a kung-fu fighter with claw strikes",
+  "concept": "art/concept/ponke.png",
+  "portrait": "sf3mod/assets/gen/portrait_ponke.png",
+  "note": "PONKE wears only a yellow tank top and green cargo shorts: no tunic flap, no long cloth strip hanging from the bandana, no pink or red cloth behind the back. When the source shows the fighter's back, draw PONKE from behind."
+ },
+ "pl07": {
+  "mascot": "mew",
+  "NAME": "MEW",
+  "desc": "grey-and-white cat with huge round eyes and a tiny smirk, black ninja outfit with a red scarf, wrapped forearms and shins, ninja tabi shoes.",
+  "fighter": "Ibuki",
+  "fighter_desc": "a ninja girl",
+  "concept": "art/concept/mew.png",
+  "portrait": "sf3mod/assets/gen/portrait_mew.png",
+  "note": "MEW is a cat with no human hair at all: no dark strands or ponytail on the head. One striped tail at the base of the spine, never in place of a leg."
+ },
+ "pl08": {
+  "mascot": "pippin",
+  "NAME": "PIPPIN",
+  "desc": "friendly white unicorn with a pastel pink-and-purple mane, golden spiral horn, big sparkly eyes, white tribal capoeira outfit with gold bangles.",
+  "fighter": "Elena",
+  "fighter_desc": "a capoeira fighter in a white outfit",
+  "concept": "art/concept/pippin.png",
+  "portrait": "sf3mod/assets/gen/portrait_pippin.png",
+  "note": "PIPPIN's white capoeira outfit fully covers her body. When the source shows the fighter's back or the top of her head (handstands, back-bends, turning away), draw PIPPIN from behind too: back of the head and mane, no face. Her one tail never replaces a leg or an arm. She always has her golden horn and her pink-purple mane, never short white hair."
+ },
+ "pl09": {
+  "mascot": "slerf",
+  "NAME": "SLERF",
+  "desc": "sleepy brown sloth with dark eye patches and a dopey smile, long hooked claws, old hermit look: tattered tan loincloth, prayer beads, a rope tied around one arm.",
+  "fighter": "Oro",
+  "fighter_desc": "an old hermit with one arm tied to his body",
+  "concept": "art/concept/slerf.png",
+  "portrait": "sf3mod/assets/gen/portrait_slerf.png",
+  "note": "Match the source's rotation exactly: if the fighter is upside down, SLERF is upside down; if the source shows the fighter's back (no face visible), draw SLERF from behind (back of the furry head, no face). In a bow with the head between raised arms, the head is between the arms. In the double-arm-raise move SLERF's furry head with its dark eye patches is clearly visible, bowed forward and drawn IN FRONT of the chest between his two raised arms, below the crossed forearms."
+ },
+ "pl20": {
+  "mascot": "bonk",
+  "NAME": "BONK",
+  "desc": "orange shiba inu dog with a cheeky open-mouth grin, long dark navy trench coat with the collar up, red scarf, black gloves, white trousers, black boots.",
+  "fighter": "Remy",
+  "fighter_desc": "a long-haired fighter in a long coat",
+  "concept": "art/concept/bonk.png",
+  "portrait": "sf3mod/assets/gen/portrait_bonk.png"
+ },
+ "pl19": {
+  "mascot": "fwog",
+  "NAME": "FWOG",
+  "desc": "small round cute green frog with a big head, wide blank eyes and blushing pink cheeks, no clothes, cream belly, stubby limbs, webbed hands and feet.",
+  "fighter": "Twelve",
+  "fighter_desc": "a white shape-shifting humanoid creature that morphs its limbs into blades and wings",
+  "concept": "art/concept/fwog.png",
+  "portrait": "sf3mod/assets/gen/portrait_fwog.png",
+  "note": "FWOG always has exactly two big eyes, one on each side of the head. A stretched arm always grows from the shoulder, never from the top of the head."
+ },
+ "pl00": {
+  "mascot": "pill",
+  "NAME": "PILL",
+  "desc": "a tall hyper-muscular humanoid boss whose whole body is split exactly down the vertical middle like the pump.fun capsule pill: one half bright pump.fun green, the other half glossy white; a smooth capsule-shaped head split green/white with glowing eyes and a small calm mouth, no hair; long flowing cape from the shoulders (outside green, lining white), gold shoulder clasps, short gold-trimmed white loincloth, bare muscular arms and legs, bare feet.",
+  "fighter": "Gill",
+  "fighter_desc": "a tall muscular boss, half red and half blue skin, long blond hair, white robe",
+  "concept": "art/concept/pill.png",
+  "portrait": "sf3mod/assets/gen/portrait_pill.png",
+  "note": "Where the original has red skin draw the green half, where it has blue skin draw the white half; replace the long blond hair with the smooth capsule head. PILL is always fully covered at the hips by his white gold-trimmed loincloth and the long cape; no bare skin below the waist. Colour PILL limb by limb exactly like the source: every body part that is BLUE in the source is WHITE on PILL, every part that is RED in the source is GREEN on PILL; a whole leg or arm is one colour, never split lengthwise. PILL always has his capsule head on his neck, visible, even behind raised arms. PILL's cape is SHORT and hangs close behind his body: it never flares out wide or trails far away from him; keep the whole cape within a small distance of his back and legs."
+ }
+}

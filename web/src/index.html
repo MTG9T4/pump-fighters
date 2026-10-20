@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>PUMP FIGHTERS</title>
+  <meta name="description" content="PUMP FIGHTERS: a fan mod of Street Fighter III: 3rd Strike. Bring your own SF33RD.AFS; it is patched in your browser.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b0a12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PUMP FIGHTERS">
+  <!-- Patch applied to the player's own SF33RD.AFS (deltas only, no game data) -->
+  <meta name="pc-patch-url" content="patch/pumpfighters.json">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" data-controls="auto">
+    <div id="side-left" class="side">
+      <div class="side-bar">
+        <button id="btn-settings" class="chip" type="button" aria-label="Settings">&#9881;</button>
+        <button id="btn-fullscreen" class="chip" type="button" aria-label="Fullscreen">&#x26F6;</button>
+      </div>
+      <div id="stick-zone" class="zone">
+        <div id="stick" data-dir="0">
+          <span class="arrow up"></span><span class="arrow right"></span>
+          <span class="arrow down"></span><span class="arrow left"></span>
+          <div id="stick-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="stage">
+      <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+
+    <div id="side-right" class="side">
+      <div class="side-bar">
+        <button class="chip hold" type="button" data-bit="2048">SELECT</button>
+        <button class="chip hold start" type="button" data-bit="1024">START</button>
+      </div>
+      <div id="button-zone" class="zone">
+        <div class="buttons">
+          <div class="btn p l" data-bit="16"><span>LP</span></div>
+          <div class="btn p m" data-bit="32"><span>MP</span></div>
+          <div class="btn p h" data-bit="64"><span>HP</span></div>
+          <div class="btn k l" data-bit="128"><span>LK</span></div>
+          <div class="btn k m" data-bit="256"><span>MK</span></div>
+          <div class="btn k h" data-bit="512"><span>HK</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="loader-card">
+      <img class="loader-icon" src="icons/icon-192.png" alt="" width="96" height="96">
+      <h1>PUMP FIGHTERS</h1>
+      <p id="status">Starting&hellip;</p>
+      <div id="bar" class="bar" hidden><div id="bar-fill"></div></div>
+      <p id="detail" class="detail"></p>
+      <button id="btn-play" class="big" type="button" hidden>TAP TO FIGHT</button>
+      <button id="btn-retry" class="big" type="button" hidden>TRY AGAIN</button>
+      <div id="byo" hidden>
+        <p class="byo-lead">Play PUMP FIGHTERS: pick your <b>SF33RD.AFS</b> from your own copy of Street Fighter III 3rd Strike.</p>
+        <button id="btn-pick" class="big" type="button">PICK SF33RD.AFS</button>
+        <input id="byo-file" class="visually-hidden" type="file" tabindex="-1" aria-hidden="true">
+        <p class="hint">PS2 US version (v1.0), the file from the disc's THIRD folder. It stays on this device:
+          it is checked and patched right here, nothing is uploaded. Needs about 660 MB of storage.</p>
+        <a class="link-row" href="patch.html">Playing on PSP or PPSSPP? Make the modded file &#x203A;</a>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+  </div>
+
+  <div id="settings" hidden>
+    <div class="sheet" role="dialog" aria-label="Settings">
+      <h2>Settings</h2>
+      <label class="row"><span>Touch controls</span>
+        <select id="opt-controls">
+          <option value="auto">Auto</option>
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label class="row"><span>Vibrate on press</span><input id="opt-haptics" type="checkbox"></label>
+      <label class="row"><span>Button size</span><input id="opt-size" type="range" min="80" max="130" step="5"></label>
+      <div class="keys">
+        <b>Keyboard</b>: arrows or WASD move, U I O punch, J K L kick, Enter start, Backspace select.
+        Gamepads work too (Square/Triangle/R1 punch, Cross/Circle/R2 kick).
+      </div>
+      <p id="data-info" class="detail"></p>
+      <div class="row">
+        <button id="btn-redownload" class="chip wide" type="button">Delete stored game data</button>
+        <button id="btn-close" class="chip wide" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

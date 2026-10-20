@@ -1,0 +1,36 @@
+# Game data never goes in git
+*.AFS
+*.afs
+*.AFS.part
+*.afs.part
+*.iso
+*.ISO
+*.bin
+*.ppg
+*.ppx
+*.adx
+*.pbp
+*.PBP
+*.elf
+
+# Patch files are attached to the GitHub Release, not committed
+patch/*.json
+patch/*.deltas
+
+# Build outputs
+node_modules/
+web/dist/
+web/build/
+web/3sx/
+web/worker/.wrangler/
+.wrangler/
+tools/game/
+tools/mod/
+tools/psp/
+tools/sf3mod/build/
+tools/sf3mod/assets/mesh/*/_codex.log
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db

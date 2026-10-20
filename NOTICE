@@ -1,0 +1,27 @@
+PUMP FIGHTERS
+A fan-made, non-commercial mod of Street Fighter III: 3rd Strike.
+
+Not affiliated with, endorsed by or sponsored by Capcom Co., Ltd.
+Street Fighter and Street Fighter III: 3rd Strike are trademarks of Capcom Co., Ltd.
+No Capcom game data is included in this repository or its releases. Players must supply SF33RD.AFS
+from their own copy of the game.
+
+Third-party characters
+----------------------
+The fighters are fan-art versions of characters, mascots and memes from the pump.fun and wider crypto
+community (SWORDCAT, INU, JEAN PHIL, ELON, PEPE, CLAUDIA, WIF, POPCAT, PNUT, MOO DENG, GIGA, GOAT,
+CHILL GUY, PONKE, MEW, PIPPIN, SLERF, BONK, FWOG, PILL). Those characters, names and likenesses belong to
+their respective creators, owners and communities. They are used here as fan art and parody, with no claim
+of ownership and no endorsement implied. ELON is a parody of a public figure and is not endorsed by him.
+If you hold rights in one of these characters and want it changed or removed, open an issue.
+
+Third-party software
+--------------------
+- 3SX (https://github.com/crowded-street/3sx), AGPL-3.0. web/3sx-web.patch is a patch to 3SX and is
+  distributed under the same license.
+- 3s-psp (https://github.com/demmis98/3s-psp). Not included; linked only.
+- PPSSPP (https://www.ppsspp.org/). Not included; linked only.
+- @ably/vcdiff-decoder (Apache-2.0), an optional dev dependency of patcher/ used as a second decoder in
+  tests. Not included; installed by npm.
+- RTMPose / rtmlib (Apache-2.0), used by tools/sf3mod/pose.py and mesh.py for pose reading. Not included;
+  installed by pip.

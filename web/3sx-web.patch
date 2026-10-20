@@ -1,0 +1,1390 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f1655d24..3da09021 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -41,11 +41,16 @@ include_directories(
+ 
+ file(GLOB_RECURSE GAME_SRC CONFIGURE_DEPENDS src/*.c)
+ 
++if(EMSCRIPTEN)
++    # Web build: no ISO import, no ROM zips, no AFS checksum, no desktop GL loader
++    list(FILTER GAME_SRC EXCLUDE REGEX ".*/src/(utils/sha256\.c|arcade/rom/rom\.c|platform/video/opengl/glad/glad\.c)$")
++endif()
++
+ add_executable(3sx MACOSX_BUNDLE
+     ${GAME_SRC}
+ )
+ 
+-if(NOT PSP)
++if(NOT PSP AND NOT EMSCRIPTEN)
+     target_sources(3sx PRIVATE
+         $<$<CONFIG:Debug>:${IMGUI_SOURCES}>
+     )
+@@ -65,6 +70,18 @@ if(PSP)
+         CRS_VIDEO_DRIVER_PSP
+         CRS_INPUT_DRIVER_SDL
+     )
++elseif(EMSCRIPTEN)
++    # Web build (WebAssembly): SDL3 Emscripten backend, WebGL2 via the OpenGL renderer, Web Audio
++    target_compile_definitions(3sx PRIVATE
++        $<$<CONFIG:Debug>:DEBUG>
++        $<$<CONFIG:Release>:RELEASE>
++
++        CRS_APP_DRIVER_SDL
++        CRS_VIDEO_DRIVER_SDL_GENERIC
++        CRS_VIDEO_DRIVER_OPENGL
++        CRS_INPUT_DRIVER_SDL
++        SOUND_ENABLED
++    )
+ else()
+     target_compile_definitions(3sx PRIVATE
+         $<$<CONFIG:Debug>:DEBUG>
+@@ -124,7 +141,7 @@ endif()
+ 
+ target_compile_options(3sx PRIVATE
+     -Wall
+-    -Werror
++    $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:-Werror>
+ 
+     -fno-strict-aliasing
+ 
+@@ -136,7 +153,7 @@ target_compile_options(3sx PRIVATE
+     $<$<OR:$<CONFIG:Debug>,$<BOOL:${THREESX_STATCHECK}>>:-Wno-unused-but-set-variable>
+ )
+ 
+-if(NOT PSP AND (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU"))
++if(NOT PSP AND NOT EMSCRIPTEN AND (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU"))
+     target_compile_options(3sx PRIVATE
+         $<$<CONFIG:Debug>:-fsanitize=address>
+         $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+@@ -176,6 +193,46 @@ endif()
+ 
+ set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/third_party")
+ 
++if(EMSCRIPTEN)
++    # Everything comes from Emscripten ports; the web page (pumpcombat/web) loads the AFS itself.
++    set(THREESX_WEB_DIR "${CMAKE_SOURCE_DIR}/src/platform/web")
++    target_compile_options(3sx PRIVATE
++        -Wno-unused-but-set-variable
++        -Wno-unused-function
++        -Wno-parentheses
++        -Wno-pointer-sign
++        -Wno-missing-braces
++        -Wno-unknown-pragmas
++        --use-port=sdl3
++        -sUSE_ZLIB=1
++    )
++    target_link_options(3sx PRIVATE
++        --use-port=sdl3
++        -sUSE_ZLIB=1
++        -sMODULARIZE=1
++        -sEXPORT_NAME=createPumpCombat
++        -sENVIRONMENT=web
++        -sALLOW_MEMORY_GROWTH=1
++        -sINITIAL_MEMORY=64MB
++        -sMAXIMUM_MEMORY=768MB
++        -sSTACK_SIZE=2MB
++        -sMIN_WEBGL_VERSION=2
++        -sMAX_WEBGL_VERSION=2
++        -sFORCE_FILESYSTEM=1
++        -sEXIT_RUNTIME=0
++        -lidbfs.js
++        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_Web_SetTouchState','_Web_GetHeapUsage','_Web_SetPaused']"
++        "-sEXPORTED_RUNTIME_METHODS=['FS','IDBFS','HEAPU8','addRunDependency','removeRunDependency']"
++        "--embed-file=${THREESX_WEB_DIR}/shaders@/shaders/opengl"
++        "--embed-file=${CMAKE_SOURCE_DIR}/assets@/assets"
++        $<$<CONFIG:Release>:-O3>
++        $<$<CONFIG:Debug>:-sASSERTIONS=2>
++        $<$<CONFIG:Debug>:-gsource-map>
++    )
++    set_target_properties(3sx PROPERTIES OUTPUT_NAME "pumpcombat" SUFFIX ".js")
++    return()
++endif()
++
+ find_package(ZLIB REQUIRED)
+ find_package(OpenGL REQUIRED)
+ 
+diff --git a/src/platform/app/sdl/sdl_app.c b/src/platform/app/sdl/sdl_app.c
+index 3c7453ff..43ef424c 100644
+--- a/src/platform/app/sdl/sdl_app.c
++++ b/src/platform/app/sdl/sdl_app.c
+@@ -38,6 +38,18 @@
+ #include "port/io/resource.h"
+ #include "port/resources.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include "platform/web/web_bridge.h"
++#include <emscripten.h>
++
++// The page can pause the game while something else covers it
++static bool web_paused = false;
++
++EMSCRIPTEN_KEEPALIVE void Web_SetPaused(int paused) {
++    web_paused = paused != 0;
++}
++#endif
++
+ #define SDL_MAIN_USE_CALLBACKS 1
+ #include <SDL3/SDL.h>
+ #include <SDL3/SDL_main.h>
+@@ -63,7 +75,11 @@ typedef enum AppPhase {
+ 
+ static AppPhase phase = APP_PHASE_INIT;
+ 
++#ifdef __EMSCRIPTEN__
++static const char* app_name = "PUMP FIGHTERS"; // becomes the page title
++#else
+ static const char* app_name = "Street Fighter III: 3rd Strike";
++#endif
+ static const float display_target_ratio = 4.0 / 3.0;
+ static const int window_min_width = 384;
+ static const int window_min_height = (int)(window_min_width / display_target_ratio);
+@@ -98,9 +114,12 @@ static void init_scalemode() {
+ static bool init_window() {
+     SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+ 
++#ifndef __EMSCRIPTEN__
++    // On the web the page owns the layout and fullscreen (SDL's fullscreen would hide the touch controls)
+     if (Config_GetBool(CFG_KEY_FULLSCREEN)) {
+         window_flags |= SDL_WINDOW_FULLSCREEN;
+     }
++#endif
+ 
+     int window_width = Config_GetInt(CFG_KEY_WINDOW_WIDTH);
+     window_width = SDL_max(window_width, window_min_width);
+@@ -256,7 +275,9 @@ static bool handle_event(const SDL_Event* event) {
+         toggle_debug_window_visibility(&event->key);
+ #endif
+ 
++#ifndef __EMSCRIPTEN__
+         handle_fullscreen_toggle(&event->key);
++#endif
+         break;
+ 
+     case SDL_EVENT_MOUSE_MOTION:
+@@ -375,6 +396,13 @@ static void end_frame() {
+     // Handle cursor hiding
+     hide_cursor_if_needed();
+ 
++#ifdef __EMSCRIPTEN__
++    // The browser drives the loop with requestAnimationFrame; SDL_AppIterate does the pacing.
++    // Sleeping here would busy-wait and block the page.
++    update_metrics(0);
++    return;
++#endif
++
+     // Do frame pacing
+     Uint64 now = SDL_GetTicksNS();
+ 
+@@ -467,10 +495,53 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
+     }
+ 
+     if (phase == APP_PHASE_INITIALIZED) {
++#ifdef __EMSCRIPTEN__
++        // requestAnimationFrame runs at the display rate (60, 90, 120 Hz, or 30 Hz in low power mode).
++        // Step the game at ~60 Hz: skip callbacks that come too early and run up to two frames
++        // when the display is slower. The accumulator never goes below zero, so a 60 Hz display
++        // runs exactly one game frame per callback instead of drifting against 59.6 Hz.
++        static Uint64 web_last_tick = 0;
++        static Sint64 web_accumulator = 0;
++        const Uint64 now = SDL_GetTicksNS();
++
++        if (web_paused && web_last_tick != 0) {
++            web_last_tick = now;
++            web_accumulator = 0;
++            return SDL_APP_CONTINUE;
++        }
++
++        if (web_last_tick == 0) {
++            web_last_tick = now - target_frame_time_ns;
++            Web_NotifyGameStarted();
++        }
++
++        web_accumulator += (Sint64)(now - web_last_tick);
++        web_last_tick = now;
++
++        if (web_accumulator > (Sint64)(4 * target_frame_time_ns)) {
++            // The tab was in the background or stalled: don't fast-forward
++            web_accumulator = target_frame_time_ns;
++        }
++
++        const Sint64 early_tolerance = target_frame_time_ns / 10;
++
++        for (int steps = 0; (steps < 2) && (web_accumulator + early_tolerance >= (Sint64)target_frame_time_ns); steps++) {
++            begin_frame();
++            Main_StepFrame();
++            end_frame();
++            Main_FinishFrame();
++            web_accumulator -= target_frame_time_ns;
++        }
++
++        if (web_accumulator < 0) {
++            web_accumulator = 0;
++        }
++#else
+         begin_frame();
+         Main_StepFrame();
+         end_frame();
+         Main_FinishFrame();
++#endif
+     }
+ 
+     return SDL_APP_CONTINUE;
+diff --git a/src/platform/input/sdl/sdl_pad.c b/src/platform/input/sdl/sdl_pad.c
+index 58604a8e..abde0d5d 100644
+--- a/src/platform/input/sdl/sdl_pad.c
++++ b/src/platform/input/sdl/sdl_pad.c
+@@ -6,6 +6,10 @@
+ 
+ #include <SDL3/SDL.h>
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++
+ #define INPUT_SOURCES_MAX 2
+ 
+ typedef enum SDLPad_InputType {
+@@ -34,6 +38,50 @@ static int connected_input_sources = 0;
+ static int keyboard_index = -1;
+ static Input_ButtonState button_state[INPUT_SOURCES_MAX] = { 0 };
+ 
++#ifdef __EMSCRIPTEN__
++// On-screen touch controls of the web page. They act as player 1's keyboard,
++// pressed together with any real keys.
++enum {
++    WEB_TOUCH_UP = 1 << 0,
++    WEB_TOUCH_DOWN = 1 << 1,
++    WEB_TOUCH_LEFT = 1 << 2,
++    WEB_TOUCH_RIGHT = 1 << 3,
++    WEB_TOUCH_LP = 1 << 4, // west (square)
++    WEB_TOUCH_MP = 1 << 5, // north (triangle)
++    WEB_TOUCH_HP = 1 << 6, // right shoulder (R1)
++    WEB_TOUCH_LK = 1 << 7, // south (cross)
++    WEB_TOUCH_MK = 1 << 8, // east (circle)
++    WEB_TOUCH_HK = 1 << 9, // right trigger (R2)
++    WEB_TOUCH_START = 1 << 10,
++    WEB_TOUCH_BACK = 1 << 11,
++};
++
++static Uint32 web_touch_state = 0;
++
++EMSCRIPTEN_KEEPALIVE void Web_SetTouchState(Uint32 state) {
++    web_touch_state = state;
++}
++
++static void apply_web_touch_state(Input_ButtonState* state) {
++    const Uint32 t = web_touch_state;
++    state->dpad_up |= (t & WEB_TOUCH_UP) != 0;
++    state->dpad_down |= (t & WEB_TOUCH_DOWN) != 0;
++    state->dpad_left |= (t & WEB_TOUCH_LEFT) != 0;
++    state->dpad_right |= (t & WEB_TOUCH_RIGHT) != 0;
++    state->west |= (t & WEB_TOUCH_LP) != 0;
++    state->north |= (t & WEB_TOUCH_MP) != 0;
++    state->right_shoulder |= (t & WEB_TOUCH_HP) != 0;
++    state->south |= (t & WEB_TOUCH_LK) != 0;
++    state->east |= (t & WEB_TOUCH_MK) != 0;
++    state->start |= (t & WEB_TOUCH_START) != 0;
++    state->back |= (t & WEB_TOUCH_BACK) != 0;
++
++    if (t & WEB_TOUCH_HK) {
++        state->right_trigger = SDL_MAX_SINT16;
++    }
++}
++#endif
++
+ static int input_source_index_from_joystick_id(SDL_JoystickID id) {
+     for (int i = 0; i < INPUT_SOURCES_MAX; i++) {
+         const SDLPad_InputSource* input_source = &input_sources[i];
+@@ -57,6 +105,11 @@ static void setup_keyboard() {
+     SDL_KeyboardID* keyboards = SDL_GetKeyboards(&keyboard_count);
+     SDL_free(keyboards);
+ 
++#ifdef __EMSCRIPTEN__
++    // Phones report no keyboard, but the touch controls feed the keyboard slot
++    keyboard_count = SDL_max(keyboard_count, 1);
++#endif
++
+     if (keyboard_index >= 0 || keyboard_count <= 0) {
+         return;
+     }
+@@ -253,6 +306,9 @@ void SDLPad_GetButtonState(int id, Input_ButtonState* state) {
+ 
+     if (id == keyboard_index) {
+         get_keyboard_state(state);
++#ifdef __EMSCRIPTEN__
++        apply_web_touch_state(state);
++#endif
+     } else {
+         get_gamepad_state(id, state);
+     }
+diff --git a/src/platform/video/opengl/opengl_renderer.c b/src/platform/video/opengl/opengl_renderer.c
+index 177ed436..a8f93e16 100644
+--- a/src/platform/video/opengl/opengl_renderer.c
++++ b/src/platform/video/opengl/opengl_renderer.c
+@@ -7,7 +7,12 @@
+ #include "sf33rd/AcrSDK/ps2/flps2render.h"
+ #include "sf33rd/AcrSDK/ps2/foundaps2.h"
+ 
++#ifdef __EMSCRIPTEN__
++// WebGL2 (OpenGL ES 3.0): no 1D textures, no BGRA or 1_5_5_5_REV uploads, GLSL ES shaders
++#include <GLES3/gl3.h>
++#else
+ #include "glad.h"
++#endif
+ #include "stb/stb_ds.h"
+ #include <SDL3/SDL.h>
+ 
+@@ -88,6 +93,44 @@ static GLuint vertex_buffer = 0;
+ static GLQuad* quads = NULL;
+ static GLVertex* vertices = NULL;
+ 
++#ifdef __EMSCRIPTEN__
++static GLint palette_4_texture_size_loc = -1;
++
++/// Converts PS2 16-bit colors (R5 G5 B5 A1, red in the low bits) to RGBA8.
++static Uint8* convert_rgb5a1_to_rgba8(const void* pixels, int count) {
++    const Uint16* src = pixels;
++    Uint8* dst = SDL_malloc(count * 4);
++
++    for (int i = 0; i < count; i++) {
++        const Uint16 c = src[i];
++        const Uint8 r = c & 0x1F;
++        const Uint8 g = (c >> 5) & 0x1F;
++        const Uint8 b = (c >> 10) & 0x1F;
++        dst[i * 4 + 0] = (r << 3) | (r >> 2);
++        dst[i * 4 + 1] = (g << 3) | (g >> 2);
++        dst[i * 4 + 2] = (b << 3) | (b >> 2);
++        dst[i * 4 + 3] = (c & 0x8000) ? 0xFF : 0;
++    }
++
++    return dst;
++}
++
++/// Converts BGRA8 to RGBA8.
++static Uint8* convert_bgra8_to_rgba8(const void* pixels, int count) {
++    const Uint8* src = pixels;
++    Uint8* dst = SDL_malloc(count * 4);
++
++    for (int i = 0; i < count; i++) {
++        dst[i * 4 + 0] = src[i * 4 + 2];
++        dst[i * 4 + 1] = src[i * 4 + 1];
++        dst[i * 4 + 2] = src[i * 4 + 0];
++        dst[i * 4 + 3] = src[i * 4 + 3];
++    }
++
++    return dst;
++}
++#endif
++
+ static GLTexture textures[FL_TEXTURE_MAX] = { 0 };
+ static GLuint palettes[FL_PALETTE_MAX] = { 0 };
+ static GLTextureSpec latest_texture_spec = { 0 };
+@@ -244,6 +287,7 @@ static void OpenGLRenderer_CreateTexture(unsigned int th) {
+     GLenum type;
+     GLPaletteType palette_type = PALETTE_NONE;
+     GLsizei buffer_width = fl_texture->width;
++    Uint8* converted = NULL;
+ 
+     switch (fl_texture->format) {
+     case SCE_GS_PSMT8:
+@@ -262,9 +306,17 @@ static void OpenGLRenderer_CreateTexture(unsigned int th) {
+         break;
+ 
+     case SCE_GS_PSMCT16:
++#ifdef __EMSCRIPTEN__
++        internal_format = GL_RGBA8;
++        format = GL_RGBA;
++        type = GL_UNSIGNED_BYTE;
++        converted = convert_rgb5a1_to_rgba8(pixels, fl_texture->width * fl_texture->height);
++        pixels = converted;
++#else
+         internal_format = GL_RGB5_A1;
+         format = GL_RGBA;
+         type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
++#endif
+         palette_type = PALETTE_NONE;
+         break;
+ 
+@@ -287,6 +339,7 @@ static void OpenGLRenderer_CreateTexture(unsigned int th) {
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+     glTexImage2D(GL_TEXTURE_2D, 0, internal_format, buffer_width, fl_texture->height, 0, format, type, pixels);
++    SDL_free(converted);
+ 
+     textures[texture_index] = (GLTexture) {
+         .handle = texture,
+@@ -315,6 +368,35 @@ static void OpenGLRenderer_CreatePalette(unsigned int ph) {
+         palettes[palette_index] = 0;
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    // Palettes become 2D textures (color_count x 1) holding RGBA8
++    Uint8* converted = NULL;
++
++    switch (fl_palette->format) {
++    case SCE_GS_PSMCT32:
++        converted = convert_bgra8_to_rgba8(pixels, color_count);
++        break;
++
++    case SCE_GS_PSMCT16:
++        converted = convert_rgb5a1_to_rgba8(pixels, color_count);
++        break;
++
++    default:
++        fatal_error("Unhandled pixel format: %d", fl_palette->format);
++        break;
++    }
++
++    GLuint palette;
++    glGenTextures(1, &palette);
++    glBindTexture(GL_TEXTURE_2D, palette);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
++    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
++    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, color_count, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, converted);
++    SDL_free(converted);
++#else
+     GLint internal_format;
+     GLenum format;
+     GLenum type;
+@@ -344,6 +426,7 @@ static void OpenGLRenderer_CreatePalette(unsigned int ph) {
+     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+     glTexImage1D(GL_TEXTURE_1D, 0, internal_format, color_count, 0, format, type, pixels);
++#endif
+ 
+     palettes[palette_index] = palette;
+ }
+@@ -454,9 +537,17 @@ static void OpenGLRenderer_DrawSolidQuad(const Quad* quad, unsigned int color) {
+ static SDL_Window* OpenGLRenderer_Init(const SDLRenderBackendInitInfo* init_info) {
+     // Init window
+ 
++#ifdef __EMSCRIPTEN__
++    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
++    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
++    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
++    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
++    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
++#else
+     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
++#endif
+     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+ 
+     window = SDL_CreateWindow(
+@@ -479,6 +570,10 @@ static SDL_Window* OpenGLRenderer_Init(const SDLRenderBackendInitInfo* init_info
+         return NULL;
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    // Interval 1 keeps the main loop on requestAnimationFrame (0 would switch it to setTimeout)
++    SDL_GL_SetSwapInterval(1);
++#else
+     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+         SDL_Log("Failed to load OpenGL functions");
+         SDL_GL_DestroyContext(gl_context);
+@@ -487,6 +582,7 @@ static SDL_Window* OpenGLRenderer_Init(const SDLRenderBackendInitInfo* init_info
+     }
+ 
+     SDL_GL_SetSwapInterval(0); // No vsync
++#endif
+ 
+     // Init common vars
+ 
+@@ -505,7 +601,11 @@ static SDL_Window* OpenGLRenderer_Init(const SDLRenderBackendInitInfo* init_info
+     glBindTexture(GL_TEXTURE_2D, canvas_depth_tex);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
++#ifdef __EMSCRIPTEN__
++    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 384, 224, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
++#else
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 384, 224, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
++#endif
+ 
+     glGenFramebuffers(1, &canvas_fbo);
+     glBindFramebuffer(GL_FRAMEBUFFER, canvas_fbo);
+@@ -540,6 +640,9 @@ static SDL_Window* OpenGLRenderer_Init(const SDLRenderBackendInitInfo* init_info
+     glUseProgram(palette_4_shader);
+     glUniform1i(glGetUniformLocation(palette_4_shader, "uPalette"), 0);
+     glUniform1i(glGetUniformLocation(palette_4_shader, "uIndexTex"), 1);
++#ifdef __EMSCRIPTEN__
++    palette_4_texture_size_loc = glGetUniformLocation(palette_4_shader, "uTextureSize");
++#endif
+ 
+     palette_8_shader = build_shader_program("vert.glsl", "frag_palette_8.glsl");
+ 
+@@ -652,6 +755,76 @@ static void OpenGLRenderer_RenderFrame(SDL_Rect viewport) {
+ 
+     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLVertex) * arrlen(quads) * 4, vertices);
+ 
++#ifdef __EMSCRIPTEN__
++    // WebGL calls are expensive on phones: draw runs of quads that share the same
++    // shader and textures with one call, and skip redundant state changes.
++    // Draw order is unchanged, so blending and depth behave as before.
++    GLuint current_program = 0;
++    GLuint bound_unit0 = 0;
++    GLuint bound_unit1 = 0;
++    int current_size = -1;
++
++    for (int i = 0; i < arrlen(quads);) {
++        const GLTextureSpec* spec = &quads[i].texture_spec;
++        int run_end = i + 1;
++
++        while (run_end < arrlen(quads)) {
++            const GLTextureSpec* other = &quads[run_end].texture_spec;
++
++            if ((other->texture.handle != spec->texture.handle) || (other->palette != spec->palette) ||
++                (other->texture.palette_type != spec->texture.palette_type) ||
++                (other->texture.width != spec->texture.width)) {
++                break;
++            }
++
++            run_end += 1;
++        }
++
++        GLuint program;
++        GLuint unit0 = 0;
++        GLuint unit1 = 0;
++
++        if (spec->texture.handle == 0) {
++            program = solid_shader;
++        } else if (spec->texture.palette_type == PALETTE_NONE) {
++            program = direct_shader;
++            unit0 = spec->texture.handle;
++        } else {
++            program = (spec->texture.palette_type == PALETTE_4) ? palette_4_shader : palette_8_shader;
++            unit0 = spec->palette;
++            unit1 = spec->texture.handle;
++        }
++
++        if (program != current_program) {
++            glUseProgram(program);
++            current_program = program;
++            current_size = -1;
++        }
++
++        if ((program == palette_4_shader) && (current_size != spec->texture.width)) {
++            // Same arguments as the desktop path
++            glUniform2i(palette_4_texture_size_loc, spec->texture.width, spec->texture.width);
++            current_size = spec->texture.width;
++        }
++
++        if (program != solid_shader) {
++            if (unit0 != bound_unit0) {
++                glActiveTexture(GL_TEXTURE0);
++                glBindTexture(GL_TEXTURE_2D, unit0);
++                bound_unit0 = unit0;
++            }
++
++            if ((unit1 != 0) && (unit1 != bound_unit1)) {
++                glActiveTexture(GL_TEXTURE1);
++                glBindTexture(GL_TEXTURE_2D, unit1);
++                bound_unit1 = unit1;
++            }
++        }
++
++        glDrawElements(GL_TRIANGLES, 6 * (run_end - i), GL_UNSIGNED_INT, (GLvoid*)(sizeof(GLuint) * 6 * i));
++        i = run_end;
++    }
++#else
+     for (int i = 0; i < arrlen(quads); i++) {
+         const GLQuad* quad = &quads[i];
+ 
+@@ -688,6 +861,7 @@ static void OpenGLRenderer_RenderFrame(SDL_Rect viewport) {
+ 
+         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (GLvoid*)(sizeof(GLuint) * 6 * i));
+     }
++#endif
+ 
+     // Draw canvas to window
+ 
+diff --git a/src/port/io/afs.c b/src/port/io/afs.c
+index 9e42e46d..e8d08dd1 100644
+--- a/src/port/io/afs.c
++++ b/src/port/io/afs.c
+@@ -7,6 +7,11 @@
+ #include <stdarg.h>
+ #include <stdio.h>
+ 
++#ifdef __EMSCRIPTEN__
++#include "platform/web/web_bridge.h"
++#include "port/utils.h"
++#endif
++
+ // Inspired by https://github.com/MaikelChan/AFSLib
+ 
+ #define AFS_MAGIC 0x41465300
+@@ -33,6 +38,11 @@ typedef struct ReadRequest {
+     size_t bytes_read;
+     Uint8* buf;
+     AFSReadState state;
++#ifdef __EMSCRIPTEN__
++    bool resident;
++    bool web_fetching;
++    int web_token;
++#endif
+ } ReadRequest;
+ 
+ static AFS afs = { 0 };
+@@ -78,6 +88,78 @@ static bool is_valid_attribute_data(
+     return true;
+ }
+ 
++#ifdef __EMSCRIPTEN__
++// The archive lives in the web page (see platform/web/web_bridge.h), not in the file system.
++// This stream reads the resident parts of it: the header, the attribute table and every entry
++// except the .adx music, which is read asynchronously (see read_into_request).
++
++static Sint64 web_stream_pos = 0;
++static int web_next_token = 1;
++
++static Sint64 web_stream_size(void* userdata) {
++    (void)userdata;
++    return Web_AFS_Size();
++}
++
++static Sint64 web_stream_seek(void* userdata, Sint64 offset, SDL_IOWhence whence) {
++    (void)userdata;
++
++    switch (whence) {
++    case SDL_IO_SEEK_SET:
++        web_stream_pos = offset;
++        break;
++
++    case SDL_IO_SEEK_CUR:
++        web_stream_pos += offset;
++        break;
++
++    case SDL_IO_SEEK_END:
++        web_stream_pos = (Sint64)Web_AFS_Size() + offset;
++        break;
++    }
++
++    return web_stream_pos;
++}
++
++static size_t web_stream_read(void* userdata, void* ptr, size_t size, SDL_IOStatus* status) {
++    (void)userdata;
++    const Sint64 total = Web_AFS_Size();
++
++    if (web_stream_pos >= total) {
++        *status = SDL_IO_STATUS_EOF;
++        return 0;
++    }
++
++    size = SDL_min(size, (size_t)(total - web_stream_pos));
++    const int bytes_read = Web_AFS_ReadSync((Uint32)web_stream_pos, ptr, (Uint32)size);
++
++    if (bytes_read < 0) {
++        *status = SDL_IO_STATUS_ERROR;
++        SDL_SetError("AFS range 0x%llX+0x%zX is not resident", (unsigned long long)web_stream_pos, size);
++        return 0;
++    }
++
++    web_stream_pos += bytes_read;
++    return bytes_read;
++}
++
++static bool web_stream_close(void* userdata) {
++    (void)userdata;
++    return true;
++}
++
++static SDL_IOStream* open_web_stream() {
++    SDL_IOStreamInterface iface;
++    SDL_INIT_INTERFACE(&iface);
++    iface.size = web_stream_size;
++    iface.seek = web_stream_seek;
++    iface.read = web_stream_read;
++    iface.close = web_stream_close;
++    web_stream_pos = 0;
++    return SDL_OpenIO(&iface, NULL);
++}
++#endif
++
+ static void read_string(SDL_IOStream* src, char* dst) {
+     Sint8 c;
+ 
+@@ -89,7 +171,11 @@ static void read_string(SDL_IOStream* src, char* dst) {
+ 
+ static bool init_afs(const char* file_path) {
+     afs.file_path = SDL_strdup(file_path);
++#ifdef __EMSCRIPTEN__
++    SDL_IOStream* io = open_web_stream();
++#else
+     SDL_IOStream* io = SDL_IOFromFile(file_path, "rb");
++#endif
+ 
+     if (io == NULL) {
+         return false;
+@@ -213,6 +299,33 @@ static int find_free_request_slot() {
+ }
+ 
+ static void read_into_request(ReadRequest* request, size_t max_read) {
++#ifdef __EMSCRIPTEN__
++    if (!request->resident) {
++        // Music streams: one asynchronous read of the whole entry, polled once per frame
++        const Uint32 offset = afs.entries[request->file_num].offset + request->bytes_read;
++
++        if (!request->web_fetching) {
++            request->web_token = web_next_token++;
++            request->web_fetching = true;
++            Web_AFS_FetchStart(request->web_token, offset, request->bytes_to_read);
++        }
++
++        const int result = Web_AFS_FetchPoll(request->web_token, request->buf + request->bytes_read, request->bytes_to_read);
++
++        if (result > 0) {
++            request->web_fetching = false;
++            request->bytes_read += request->bytes_to_read;
++            request->bytes_to_read = 0;
++            request->state = AFS_READ_STATE_FINISHED;
++        } else if (result < 0) {
++            request->web_fetching = false;
++            request->state = AFS_READ_STATE_ERROR;
++        }
++
++        return;
++    }
++#endif
++
+     const Sint64 offset = afs.entries[request->file_num].offset + request->bytes_read;
+     SDL_SeekIO(stream, offset, SDL_IO_SEEK_SET);
+ 
+@@ -267,6 +380,11 @@ AFSHandle AFS_Open(size_t file_num) {
+     request->buf = NULL;
+     request->state = AFS_READ_STATE_IDLE;
+     request->initialized = true;
++#ifdef __EMSCRIPTEN__
++    request->resident = Web_AFS_IsResident(afs.entries[file_num].offset, afs.entries[file_num].size);
++    request->web_fetching = false;
++    request->web_token = 0;
++#endif
+ 
+     _log("Open %s (file_num = %d)", afs.entries[file_num].name, file_num);
+     return index;
+@@ -285,6 +403,13 @@ void AFS_ReadSync(AFSHandle handle, void* buf) {
+     ReadRequest* request = &requests[handle];
+     _log("Read (sync) %s", afs.entries[request->file_num].name);
+     AFS_Read(handle, buf);
++
++#ifdef __EMSCRIPTEN__
++    if (!request->resident) {
++        fatal_error("AFS: %s can only be read asynchronously in the web build", afs.entries[request->file_num].name);
++    }
++#endif
++
+     read_into_request(request, request->bytes_to_read);
+     SDL_assert(request->state == AFS_READ_STATE_FINISHED);
+ }
+@@ -292,12 +417,23 @@ void AFS_ReadSync(AFSHandle handle, void* buf) {
+ void AFS_Stop(AFSHandle handle) {
+     ReadRequest* request = &requests[handle];
+     _log("Stop %s", afs.entries[request->file_num].name);
++#ifdef __EMSCRIPTEN__
++    if (request->web_fetching) {
++        Web_AFS_FetchCancel(request->web_token);
++        request->web_fetching = false;
++    }
++#endif
+     request->state = AFS_READ_STATE_IDLE;
+ }
+ 
+ void AFS_Close(AFSHandle handle) {
+     ReadRequest* request = &requests[handle];
+     _log("Close %s", afs.entries[request->file_num].name);
++#ifdef __EMSCRIPTEN__
++    if (request->web_fetching) {
++        Web_AFS_FetchCancel(request->web_token);
++    }
++#endif
+     SDL_zerop(request);
+ }
+ 
+diff --git a/src/port/resources.c b/src/port/resources.c
+index eeeb3bc9..588be187 100644
+--- a/src/port/resources.c
++++ b/src/port/resources.c
+@@ -7,7 +7,7 @@
+ #include "utils/sha256.h"
+ #endif
+ 
+-#if CRS_APP_DRIVER_SDL
++#if CRS_APP_DRIVER_SDL && !defined(__EMSCRIPTEN__)
+ #include <cdio/iso9660.h>
+ #endif
+ 
+@@ -43,6 +43,12 @@ const char* Resources_GetAFSPath() {
+ }
+ 
+ bool Resources_Check() {
++#ifdef __EMSCRIPTEN__
++    // The web page provides the archive (see platform/web/web_bridge.h) before the game starts.
++    // The modded PUMP FIGHTERS archive differs from retail, so there is no checksum either.
++    return true;
++#endif
++
+     const char* afs_path = Resources_GetAFSPath();
+     const bool afs_present = file_exists(afs_path);
+ 
+@@ -85,7 +91,14 @@ bool Resources_Check() {
+ #endif
+ }
+ 
+-#if CRS_APP_DRIVER_SDL
++#if CRS_APP_DRIVER_SDL && defined(__EMSCRIPTEN__)
++
++bool Resources_RunResourceCopyingFlow() {
++    // Never reached: Resources_Check always succeeds on the web
++    return false;
++}
++
++#elif CRS_APP_DRIVER_SDL
+ 
+ #define ERROR_LEN_MAX 512
+ 
+diff --git a/src/port/sound/adx.c b/src/port/sound/adx.c
+index a84addf1..44d5f60e 100644
+--- a/src/port/sound/adx.c
++++ b/src/port/sound/adx.c
+@@ -33,6 +33,13 @@ typedef struct ADXTrack {
+     ADXDecoder decoder;
+     SDL_IOStream* decoder_file;
+     ADXLoopInfo loop_info;
++#ifdef __EMSCRIPTEN__
++    // The web build reads .adx entries asynchronously (they are not kept in memory),
++    // so a track waits in this state until its data has arrived.
++    bool loading;
++    bool looping_allowed;
++    ResourceHandle load_handle;
++#endif
+ } ADXTrack;
+ 
+ static SDL_AudioStream* stream = NULL;
+@@ -179,11 +186,26 @@ static void process_track(ADXTrack* track) {
+     }
+ }
+ 
++static void track_start_decoding(ADXTrack* track, bool looping_allowed);
++
+ static void track_init(ADXTrack* track, int file_id, void* buf, size_t buf_size, bool looping_allowed) {
+     if (file_id == -1 && buf == NULL) {
+         fatal_error("One of file_id or buf must be valid.");
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    if (file_id != -1) {
++        track->size = Resource_GetSize(file_id);
++        track->data = SDL_malloc(track->size);
++        track->should_free_data_after_use = true;
++        track->load_handle = Resource_Open(file_id);
++        track->looping_allowed = looping_allowed;
++        track->loading = true;
++        Resource_Read(track->load_handle, track->data);
++        return;
++    }
++#endif
++
+     if (file_id != -1) {
+         track->data = load_file(file_id, &track->size);
+         track->should_free_data_after_use = true;
+@@ -193,6 +215,10 @@ static void track_init(ADXTrack* track, int file_id, void* buf, size_t buf_size,
+         track->should_free_data_after_use = false;
+     }
+ 
++    track_start_decoding(track, looping_allowed);
++}
++
++static void track_start_decoding(ADXTrack* track, bool looping_allowed) {
+     track->decoder_file = SDL_IOFromConstMem(track->data, track->size);
+ 
+     if (track->decoder_file == NULL || !ADXDecoder_Init(&track->decoder, track->decoder_file)) {
+@@ -208,7 +234,50 @@ static void track_init(ADXTrack* track, int file_id, void* buf, size_t buf_size,
+     process_track(track); // Feed first batch of data to the stream
+ }
+ 
++#ifdef __EMSCRIPTEN__
++static void track_poll_loading(ADXTrack* track) {
++    if (!track->loading) {
++        return;
++    }
++
++    switch (Resource_GetState(track->load_handle)) {
++    case RESOURCE_READ_STATE_FINISHED:
++        Resource_Close(track->load_handle);
++        track->loading = false;
++        track_start_decoding(track, track->looping_allowed);
++        break;
++
++    case RESOURCE_READ_STATE_ERROR:
++        // Give up on this track; an empty decoder counts as exhausted
++        SDL_Log("ADX: failed to read track data");
++        Resource_Close(track->load_handle);
++        track->loading = false;
++        break;
++
++    default:
++        break;
++    }
++}
++
++static bool any_track_loading() {
++    for (int i = 0; i < num_tracks; i++) {
++        if (tracks[(first_track_index + i) % TRACKS_MAX].loading) {
++            return true;
++        }
++    }
++
++    return false;
++}
++#endif
++
+ static void track_destroy(ADXTrack* track) {
++#ifdef __EMSCRIPTEN__
++    if (track->loading) {
++        Resource_Stop(track->load_handle);
++        Resource_Close(track->load_handle);
++    }
++#endif
++
+     loop_info_destroy(&track->loop_info);
+     SDL_CloseIO(track->decoder_file);
+ 
+@@ -238,9 +307,22 @@ void ADX_ProcessTracks() {
+     const int first_track_index_old = first_track_index;
+     const int num_tracks_old = num_tracks;
+ 
++#ifdef __EMSCRIPTEN__
++    for (int i = 0; i < num_tracks_old; i++) {
++        track_poll_loading(&tracks[(first_track_index_old + i) % TRACKS_MAX]);
++    }
++#endif
++
+     for (int i = 0; i < num_tracks_old; i++) {
+         const int j = (first_track_index_old + i) % TRACKS_MAX;
+         ADXTrack* track = &tracks[j];
++
++#ifdef __EMSCRIPTEN__
++        if (track->loading) {
++            break; // Wait for the data; later tracks play after this one
++        }
++#endif
++
+         process_track(track);
+ 
+         if (!track_exhausted(track)) {
+@@ -386,6 +468,12 @@ ADXState ADX_GetState() {
+         return ADX_STATE_STOP;
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    if (stream_is_empty() && any_track_loading()) {
++        return ADX_IsPaused() ? ADX_STATE_STOP : ADX_STATE_PLAYING;
++    }
++#endif
++
+     if (stream_is_empty()) {
+         return ADX_STATE_PLAYEND;
+     } else {
+diff --git a/src/sf33rd/Source/Game/effect/eff48.c b/src/sf33rd/Source/Game/effect/eff48.c
+index e0034199..e7586c4c 100644
+--- a/src/sf33rd/Source/Game/effect/eff48.c
++++ b/src/sf33rd/Source/Game/effect/eff48.c
+@@ -162,7 +162,7 @@ s32 effect_48_init(s16 type) {
+     return 0;
+ }
+ 
+-const s16 eff48_num_tbl[22] = { 21, 13, 4, 7, 9, 4, 7, 10, 6, 4, 6, 5, 19, 4, 5, 14, 11, 10, 3, 4, 10, 13 };
++const s16 eff48_num_tbl[22] = { 21, 13, 4, 7, 9, 4, 7, 10, 6, 4, 8, 6, 19, 8, 3, 14, 11, 10, 3, 5, 10, 13 };
+ 
+ const s16 eff48_data_tbl00[168] = {
+     0,  0, 336, 112, 60, 0, 20,  1,  0,  0, 368, 112, 60, 0, 8,   1,  0,  0, 400, 112, 60, 0, 5,   1,  0,  0, 336, 80,
+@@ -204,19 +204,45 @@ const s16 eff48_data_tbl07[80] = { 0,  0, 360, 128, 60, 0, 9,   1,   0,  0, 384,
+                                    0,  0, 544, 128, 60, 0, 20,  1,   0,  0, 576, 128, 60, 0, 8,   1,   0,  0, 608, 128,
+                                    60, 0, 5,   1,   0,  0, 640, 128, 60, 0, 18,  1,   0,  0, 672, 128, 60, 0, 5,   1 };
+ 
+-const s16 eff48_data_tbl08[48] = { 2, 1, 432, 64, 60, 2, 13, 1, 2, 1, 464, 64, 60, 2, 1,  1,
+-                                   2, 1, 496, 64, 60, 2, 11, 1, 2, 1, 528, 64, 60, 2, 15, 1,
+-                                   2, 1, 560, 64, 60, 2, 20, 1, 2, 1, 592, 64, 60, 2, 15, 1 };
++// PUMP FIGHTERS opening name card: MAKOTO -> POPCAT
++const s16 eff48_data_tbl08[48] = {
++    2, 1, 432, 64, 60, 2, 16, 1,
++    2, 1, 464, 64, 60, 2, 15, 1,
++    2, 1, 496, 64, 60, 2, 16, 1,
++    2, 1, 528, 64, 60, 2, 3, 1,
++    2, 1, 560, 64, 60, 2, 1, 1,
++    2, 1, 592, 64, 60, 2, 20, 1
++};
+ 
+-const s16 eff48_data_tbl09[32] = { 2, 1, 368, 208, 60, 2, 18, 1, 2, 1, 400, 208, 60, 2, 5,  1,
+-                                   2, 1, 432, 208, 60, 2, 13, 1, 2, 1, 464, 208, 60, 2, 25, 1 };
++// PUMP FIGHTERS opening name card: REMY -> BONK
++const s16 eff48_data_tbl09[32] = {
++    2, 1, 368, 208, 60, 2, 2, 1,
++    2, 1, 400, 208, 60, 2, 15, 1,
++    2, 1, 432, 208, 60, 2, 14, 1,
++    2, 1, 464, 208, 60, 2, 11, 1
++};
+ 
+-const s16 eff48_data_tbl10[48] = { 0, 0, 368, 48, 60, 2, 4, 1, 0, 0, 400, 48, 60, 2, 21, 1,
+-                                   0, 0, 432, 48, 60, 2, 4, 1, 0, 0, 464, 48, 60, 2, 12, 1,
+-                                   0, 0, 496, 48, 60, 2, 5, 1, 0, 0, 528, 48, 60, 2, 25, 1 };
++// PUMP FIGHTERS opening name card: DUDLEY -> JEAN PHIL
++const s16 eff48_data_tbl10[64] = {
++    0, 0, 384, 48, 60, 2, 10, 1,
++    0, 0, 416, 48, 60, 2, 5, 1,
++    0, 0, 448, 48, 60, 2, 1, 1,
++    0, 0, 480, 48, 60, 2, 14, 1,
++    0, 0, 544, 48, 60, 2, 16, 1,
++    0, 0, 576, 48, 60, 2, 8, 1,
++    0, 0, 608, 48, 60, 2, 9, 1,
++    0, 0, 640, 48, 60, 2, 12, 1
++};
+ 
+-const s16 eff48_data_tbl11[40] = { 0,  0, 352, 208, 60, 2, 5,   1,   0,  0, 384, 208, 60, 2, 12,  1,   0,  0, 416, 208,
+-                                   60, 2, 5,   1,   0,  0, 448, 208, 60, 2, 14,  1,   0,  0, 480, 208, 60, 2, 1,   1 };
++// PUMP FIGHTERS opening name card: ELENA -> PIPPIN
++const s16 eff48_data_tbl11[48] = {
++    0, 0, 352, 208, 60, 2, 16, 1,
++    0, 0, 384, 208, 60, 2, 9, 1,
++    0, 0, 416, 208, 60, 2, 16, 1,
++    0, 0, 448, 208, 60, 2, 16, 1,
++    0, 0, 480, 208, 60, 2, 9, 1,
++    0, 0, 512, 208, 60, 2, 14, 1
++};
+ 
+ const s16 eff48_data_tbl12[152] = { 0,  0, 336, 112, 60, 0, 9,   1,   0,  0, 360, 112, 60, 0, 20,  1,  0,  0, 384, 112,
+                                     60, 0, 33,  1,   0,  0, 416, 112, 60, 0, 19,  1,   0,  0, 336, 80, 60, 0, 1,   1,
+@@ -227,11 +253,24 @@ const s16 eff48_data_tbl12[152] = { 0,  0, 336, 112, 60, 0, 9,   1,   0,  0, 360
+                                     0,  0, 416, 48,  60, 0, 20,  1,   0,  0, 448, 48,  60, 0, 15,  1,  0,  0, 480, 48,
+                                     60, 0, 18,  1,   0,  0, 512, 48,  60, 0, 25,  1 };
+ 
+-const s16 eff48_data_tbl13[32] = { 0, 0, 400, 200, 60, 2, 19, 1, 0, 0, 400, 152, 60, 2, 5,  1,
+-                                   0, 0, 400, 104, 60, 2, 1,  1, 0, 0, 400, 56,  60, 2, 14, 1 };
++// PUMP FIGHTERS opening name card: SEAN -> CHILL GUY
++const s16 eff48_data_tbl13[64] = {
++    0, 0, 384, 200, 60, 2, 3, 1,
++    0, 0, 416, 200, 60, 2, 8, 1,
++    0, 0, 448, 200, 60, 2, 9, 1,
++    0, 0, 480, 200, 60, 2, 12, 1,
++    0, 0, 512, 200, 60, 2, 12, 1,
++    0, 0, 576, 200, 60, 2, 7, 1,
++    0, 0, 608, 200, 60, 2, 21, 1,
++    0, 0, 640, 200, 60, 2, 25, 1
++};
+ 
+-const s16 eff48_data_tbl14[40] = { 2,  2, 384, 208, 60, 2, 9,   1,  2,  2, 384, 168, 60, 2, 2,   1,  2,  2, 384, 128,
+-                                   60, 2, 21,  1,   2,  2, 384, 88, 60, 2, 11,  1,   2,  2, 384, 48, 60, 2, 9,   1 };
++// PUMP FIGHTERS opening name card: IBUKI -> MEW
++const s16 eff48_data_tbl14[24] = {
++    2, 2, 384, 208, 60, 2, 13, 1,
++    2, 2, 384, 168, 60, 2, 5, 1,
++    2, 2, 384, 128, 60, 2, 23, 1
++};
+ 
+ const s16 eff48_data_tbl15[112] = { 0,  0, 512, 80, 60, 0, 20,  1,  0,  0, 544, 80, 60, 0, 8,   1,  0,  0, 576, 80,
+                                     60, 0, 5,   1,  0,  0, 608, 80, 60, 0, 18,  1,  0,  0, 640, 80, 60, 0, 5,   1,
+@@ -253,11 +292,21 @@ const s16 eff48_data_tbl17[80] = { 1, 144, 416, 224, 60, 0, 15, 1, 1, 144, 448,
+                                    1, 112, 528, 48,  60, 0, 8,  1, 1, 112, 560, 48,  60, 0, 20, 1,
+                                    1, 112, 592, 48,  60, 0, 5,  1, 1, 112, 624, 48,  60, 0, 18, 1 };
+ 
+-const s16 eff48_data_tbl18[24] = { 0,  0, 528, 208, 60, 2, 25,  1,   0,  0, 576, 208,
+-                                   60, 2, 21,  1,   0,  0, 624, 208, 60, 2, 14,  1 };
++// PUMP FIGHTERS opening name card: YUN -> WIF
++const s16 eff48_data_tbl18[24] = {
++    0, 0, 528, 208, 60, 2, 23, 1,
++    0, 0, 576, 208, 60, 2, 9, 1,
++    0, 0, 624, 208, 60, 2, 6, 1
++};
+ 
+-const s16 eff48_data_tbl19[32] = { 0, 0, 640, 208, 60, 2, 25, 1, 0, 0, 640, 160, 60, 2, 1, 1,
+-                                   0, 0, 640, 112, 60, 2, 14, 1, 0, 0, 640, 64,  60, 2, 7, 1 };
++// PUMP FIGHTERS opening name card: YANG -> PONKE
++const s16 eff48_data_tbl19[40] = {
++    0, 0, 640, 208, 60, 2, 16, 1,
++    0, 0, 640, 168, 60, 2, 15, 1,
++    0, 0, 640, 128, 60, 2, 14, 1,
++    0, 0, 640, 88, 60, 2, 11, 1,
++    0, 0, 640, 48, 60, 2, 5, 1
++};
+ 
+ const s16 eff48_data_tbl20[80] = { 1, 144, 480, 224, 60, 0, 20, 1, 1, 144, 512, 224, 60, 0, 8,  1,
+                                    1, 144, 544, 224, 60, 1, 5,  1, 1, 144, 576, 224, 60, 0, 18, 1,
+diff --git a/src/platform/web/shaders/frag_direct.glsl b/src/platform/web/shaders/frag_direct.glsl
+new file mode 100644
+index 00000000..4eea5f9b
+--- /dev/null
++++ b/src/platform/web/shaders/frag_direct.glsl
+@@ -0,0 +1,17 @@
++#version 300 es
++// WebGL2 version of shaders/opengl/frag_direct.glsl
++precision highp float;
++
++in vec4 vColor;
++in vec2 vTexCoord;
++out vec4 FragColor;
++
++uniform sampler2D uTexture;
++
++void main() {
++    FragColor = texture(uTexture, vTexCoord) * vColor;
++
++    if (FragColor.a == 0.0) {
++        discard;
++    }
++}
+diff --git a/src/platform/web/shaders/frag_palette_4.glsl b/src/platform/web/shaders/frag_palette_4.glsl
+new file mode 100644
+index 00000000..a1babc35
+--- /dev/null
++++ b/src/platform/web/shaders/frag_palette_4.glsl
+@@ -0,0 +1,34 @@
++#version 300 es
++// WebGL2 version of shaders/opengl/frag_palette_4.glsl (palette is a color_count x 1 2D texture)
++precision highp float;
++precision highp int;
++precision highp usampler2D;
++
++uniform sampler2D uPalette;
++uniform usampler2D uIndexTex;
++uniform ivec2 uTextureSize;
++
++in vec4 vColor;
++in vec2 vTexCoord;
++out vec4 FragColor;
++
++uint fetch4bppIndex(vec2 uv) {
++    ivec2 pixelCoord = ivec2(
++        int(uv.x * float(uTextureSize.x)),
++        int(uv.y * float(uTextureSize.y))
++    );
++
++    int packedX = pixelCoord.x / 2;
++    uint packedTexel = texelFetch(uIndexTex, ivec2(packedX, pixelCoord.y), 0).r;
++    return ((pixelCoord.x & 1) == 0) ? (packedTexel & 0xFu) : ((packedTexel >> 4) & 0xFu);
++}
++
++void main() {
++    uint index = fetch4bppIndex(vTexCoord);
++    vec4 color = texelFetch(uPalette, ivec2(int(index), 0), 0);
++    FragColor = color * vColor;
++
++    if (FragColor.a == 0.0) {
++        discard;
++    }
++}
+diff --git a/src/platform/web/shaders/frag_palette_8.glsl b/src/platform/web/shaders/frag_palette_8.glsl
+new file mode 100644
+index 00000000..4637ff90
+--- /dev/null
++++ b/src/platform/web/shaders/frag_palette_8.glsl
+@@ -0,0 +1,22 @@
++#version 300 es
++// WebGL2 version of shaders/opengl/frag_palette_8.glsl (palette is a color_count x 1 2D texture)
++precision highp float;
++precision highp int;
++precision highp usampler2D;
++
++in vec4 vColor;
++in vec2 vTexCoord;
++out vec4 FragColor;
++
++uniform sampler2D uPalette;
++uniform usampler2D uIndexTex;
++
++void main() {
++    uint index = texture(uIndexTex, vTexCoord).r;
++    vec4 color = texelFetch(uPalette, ivec2(int(index), 0), 0);
++    FragColor = color * vColor;
++
++    if (FragColor.a == 0.0) {
++        discard;
++    }
++}
+diff --git a/src/platform/web/shaders/frag_solid.glsl b/src/platform/web/shaders/frag_solid.glsl
+new file mode 100644
+index 00000000..03518abb
+--- /dev/null
++++ b/src/platform/web/shaders/frag_solid.glsl
+@@ -0,0 +1,11 @@
++#version 300 es
++// WebGL2 version of shaders/opengl/frag_solid.glsl
++precision highp float;
++
++in vec4 vColor;
++in vec2 vTexCoord;
++out vec4 FragColor;
++
++void main() {
++    FragColor = vColor;
++}
+diff --git a/src/platform/web/shaders/vert.glsl b/src/platform/web/shaders/vert.glsl
+new file mode 100644
+index 00000000..44e1732a
+--- /dev/null
++++ b/src/platform/web/shaders/vert.glsl
+@@ -0,0 +1,16 @@
++#version 300 es
++// WebGL2 version of shaders/opengl/vert.glsl
++precision highp float;
++
++layout (location = 0) in vec3 aPos;
++layout (location = 1) in vec2 aTexCoord;
++layout (location = 2) in vec4 aColor;
++
++out vec2 vTexCoord;
++out vec4 vColor;
++
++void main() {
++    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
++    vTexCoord = aTexCoord;
++    vColor = aColor;
++}
+diff --git a/src/platform/web/web_bridge.c b/src/platform/web/web_bridge.c
+new file mode 100644
+index 00000000..5712b67d
+--- /dev/null
++++ b/src/platform/web/web_bridge.c
+@@ -0,0 +1,40 @@
++#ifdef __EMSCRIPTEN__
++
++#include "platform/web/web_bridge.h"
++
++#include <emscripten.h>
++
++// `Module.pcAfs` is provided by the page (pumpcombat/web/src/afs-store.js).
++
++EM_JS(uint32_t, Web_AFS_Size, (void), { return Module['pcAfs'].size() >>> 0; });
++
++EM_JS(int, Web_AFS_ReadSync, (uint32_t offset, void* dst, uint32_t len), {
++    return Module['pcAfs'].readSync(offset >>> 0, len >>> 0, HEAPU8, dst >>> 0);
++});
++
++EM_JS(bool, Web_AFS_IsResident, (uint32_t offset, uint32_t len), {
++    return Module['pcAfs'].isResident(offset >>> 0, len >>> 0) ? 1 : 0;
++});
++
++EM_JS(void, Web_AFS_FetchStart, (int token, uint32_t offset, uint32_t len), {
++    Module['pcAfs'].fetchStart(token, offset >>> 0, len >>> 0);
++});
++
++EM_JS(int, Web_AFS_FetchPoll, (int token, void* dst, uint32_t len), {
++    return Module['pcAfs'].fetchPoll(token, HEAPU8, dst >>> 0, len >>> 0);
++});
++
++EM_JS(void, Web_AFS_FetchCancel, (int token), { Module['pcAfs'].fetchCancel(token); });
++
++EM_JS(void, Web_NotifyGameStarted, (void), {
++    if (Module['onGameStarted']) {
++        Module['onGameStarted']();
++    }
++});
++
++/// Current wasm heap size in bytes (for the page's debug overlay).
++EMSCRIPTEN_KEEPALIVE uint32_t Web_GetHeapUsage(void) {
++    return (uint32_t)EM_ASM_INT({ return HEAPU8.length; });
++}
++
++#endif
+diff --git a/src/platform/web/web_bridge.h b/src/platform/web/web_bridge.h
+new file mode 100644
+index 00000000..6624ae01
+--- /dev/null
++++ b/src/platform/web/web_bridge.h
+@@ -0,0 +1,42 @@
++#ifndef PLATFORM_WEB_BRIDGE_H
++#define PLATFORM_WEB_BRIDGE_H
++
++// Glue between the game and the PUMP FIGHTERS web page (pumpcombat/web).
++//
++// The page patches the player's own SF33RD.AFS once, keeps it in the browser's own storage (OPFS) and
++// exposes it as `Module.pcAfs`. Small entries (everything but the .adx music) plus the AFS
++// header and attribute table are copied into JS memory, so the game can read them synchronously.
++// The .adx music streams are read on demand from the stored file, asynchronously.
++
++#ifdef __EMSCRIPTEN__
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++/// Total size of the AFS archive in bytes.
++uint32_t Web_AFS_Size(void);
++
++/// Reads `len` bytes at `offset` into `dst` from the resident copy.
++/// @return Number of bytes copied, or -1 if the range is not resident.
++int Web_AFS_ReadSync(uint32_t offset, void* dst, uint32_t len);
++
++/// @return Whether the whole range is resident (can be read with `Web_AFS_ReadSync`).
++bool Web_AFS_IsResident(uint32_t offset, uint32_t len);
++
++/// Starts an asynchronous read of a range that is not resident.
++void Web_AFS_FetchStart(int token, uint32_t offset, uint32_t len);
++
++/// Polls an asynchronous read. When it has finished the data is copied to `dst`.
++/// @return 1 when done (data copied), 0 while pending, -1 on error.
++int Web_AFS_FetchPoll(int token, void* dst, uint32_t len);
++
++/// Drops an asynchronous read that is no longer needed.
++void Web_AFS_FetchCancel(int token);
++
++/// Tells the page the game has started (hides the loader).
++void Web_NotifyGameStarted(void);
++
++#endif
++
++#endif
+diff --git a/src/platform/web/web_rom_stub.c b/src/platform/web/web_rom_stub.c
+new file mode 100644
+index 00000000..37e84b2f
+--- /dev/null
++++ b/src/platform/web/web_rom_stub.c
+@@ -0,0 +1,44 @@
++#ifdef __EMSCRIPTEN__
++
++// The web build has no CPS3 ROM zips (and no minizip-ng), so arcade/rom/rom.c is replaced by
++// these stubs. Arcade_Init only calls Rom_Create when a zip exists, which never happens here.
++
++#include "arcade/rom/rom.h"
++
++const char* Rom_GetZipName(RomGame game) {
++    return (game == ROM_GAME_SFIII) ? "sfiii.zip" : "sfiii3.zip";
++}
++
++Rom* Rom_Create(RomGame game, const char* path) {
++    (void)game;
++    (void)path;
++    SDL_SetError("CPS3 ROMs are not supported in the web build");
++    return NULL;
++}
++
++void Rom_Destroy(Rom* rom) {
++    (void)rom;
++}
++
++RomGame Rom_GetGame(const Rom* rom) {
++    (void)rom;
++    return ROM_GAME_SFIII3;
++}
++
++RomRegion Rom_GetSimm(const Rom* rom, int simm) {
++    (void)rom;
++    (void)simm;
++    return (RomRegion) { 0 };
++}
++
++RomRegion Rom_GetProgram(const Rom* rom) {
++    (void)rom;
++    return (RomRegion) { 0 };
++}
++
++RomRegion Rom_GetGraphics(const Rom* rom) {
++    (void)rom;
++    return (RomRegion) { 0 };
++}
++
++#endif

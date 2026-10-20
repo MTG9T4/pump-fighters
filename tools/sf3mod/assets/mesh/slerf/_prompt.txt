@@ -1,0 +1,35 @@
+Use your image generation tool. Do not write code (only save / copy the generated files).
+This is a private Street Fighter III mod, "PUMP COMBAT". Character: SLERF - SLERF: sleepy brown sloth with long hooked claws, old hermit look: tattered tan loincloth, prayer beads, a rope tied around one arm.
+
+Attached images, in order:
+1) art/concept/slerf.png - the character sheet (identity, colours, outfit). Keep the character exactly on-model.
+2) sf3mod/assets/mesh/slerf/_style.png - the character's existing cut-out puppet parts. MATCH THIS STYLE EXACTLY: bold readable
+   shapes, thick dark outline (#14101c), clean cel shading with 3 tones per material, light from the upper left, no
+   painterly texture, no fur noise, no glow, no cast shadows. Same palette and line weight.
+3) sf3mod/assets/mesh/_guide/body.png - grey mannequin: the POSE and FRAMING of image A below.
+4) sf3mod/assets/mesh/_guide/arm.png - grey mannequin: the POSE and FRAMING of image B below.
+The mannequins only show pose and placement: do not copy their grey colour; use the character's own proportions.
+
+Purpose: layers for 2D mesh skinning (like Spine / DragonBones): a script deforms each drawing with bones onto every
+animation frame of a fighting-game character (the whole body ends up ~110 px tall), so each layer must be ONE
+continuous drawing with no gaps or seams between its body parts. View: 3/4 side view of a fighter whose body faces
+the viewer's RIGHT (like a fighting-game character on the left side of the screen), slightly turned toward camera.
+
+Make exactly 2 images, portrait 2:3 (1024x1536), each on a pure flat black #000000 background, nothing else in the
+image (no text, no ground, no shadow), and save them with original bytes, no resizing:
+
+A) sf3mod/assets/mesh/slerf/body.png - the BODY layer: the whole character from the neck down WITHOUT ARMS and WITHOUT HEAD, as one
+   continuous drawing: a short neck stub / collar at the top centre, chest, belly, waist, hips, both legs and both feet
+   (pelvis and legs joined naturally like a real body, no separate plates, no seams at the hips or knees). Pose exactly
+   like the guide: standing upright, legs straight and apart in a wide A-stance, a clear black gap between the legs
+   from the crotch down, both feet flat on one line with the toes pointing RIGHT. No arms at all: the sides of
+   the chest end flush at the armpits, with NO shoulder caps, arm stubs or sleeves sticking out (the arm layer is
+   drawn separately and covers the shoulder). No tail, no cape, no weapon, no hands. The loincloth hangs only at the front and back, short, so the legs are free with a gap between them. Fill about 85% of
+   the image height, centred.
+B) sf3mod/assets/mesh/slerf/arm.png - the ARM layer: one complete arm as one continuous drawing from shoulder to fist: the character's sleeve or shoulder at the top, the full arm, the hand clenched into a fist.
+   Shoulder at the TOP, elbow in the middle, wrist, and the fist at the BOTTOM with the knuckles pointing down.
+   Hanging straight down, the arm's long axis exactly vertical and centred, elbow straight. Seen from the outside of
+   the arm. Same scale as the body in image A (arm length from shoulder to wrist about the length from the neck stub
+   to the crotch). Fill about 80% of the image height.
+
+Finish with the two saved paths.
